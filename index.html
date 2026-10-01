@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="robots" content="noindex, nofollow">
+<title>Shift alert bot - architecture spike</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230088cc'/><text x='32' y='46' text-anchor='middle' font-size='36' fill='white'>🤖</text></svg>" type="image/svg+xml">
+<style>
+:root{--ink:#1B1F1D;--sub:#5B6766;--line:#DDE3E2;--soft:#F4F7F6;--tg:#0088cc;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;box-sizing:border-box;color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}html{background:#fff}body{margin:0;background:#fff;color:var(--ink);font:17px/1.65 Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;-webkit-font-smoothing:antialiased}
+a{color:var(--tg);text-underline-offset:2px}code{font:14px/1.5 var(--mono);background:var(--soft);border-radius:4px;padding:1px 5px}pre{font:13.5px/1.55 var(--mono);background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:0 0 16px}pre code{background:none;padding:0}
+.page{max-width:700px;margin:0 auto;padding:56px 22px 80px}h1{font:600 30px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;letter-spacing:-.01em;margin:0 0 6px}
+.by{font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--sub);margin:0 0 32px}
+h2{font:600 19px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:44px 0 10px}
+p{margin:0 0 14px}ul,ol{margin:0 0 14px;padding-left:22px}li{margin:0 0 8px}
+.tg{background:#0088cc;color:#fff;border-radius:12px;padding:16px 20px;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:380px;margin:0 0 16px}
+.tg b{display:block;margin-bottom:8px;font-size:15px}.tg .line{color:rgba(255,255,255,.75);margin:3px 0}
+.tg .row{display:flex;gap:6px;margin-top:8px}.tg .btn{flex:1;background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:8px;font:600 13px -apple-system,sans-serif;text-align:center;cursor:default}
+.files{font:14px/1.5 var(--mono);list-style:none;padding:0}.files li{margin:0 0 6px}.files span{font-family:Charter,Georgia,serif;font-size:15px;color:var(--sub)}
+.foot{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--sub)}
+.run{border:1px solid var(--line);border-radius:10px;margin:18px 0 10px;overflow:hidden}
+.runbar{display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--soft);border-bottom:1px solid var(--line);flex-wrap:wrap;font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.runbar button{font:600 14px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--ink);color:#fff;border:0;border-radius:7px;padding:10px 14px;cursor:pointer}
+.runbar button:disabled{opacity:.5;cursor:default}
+.runbar span{color:var(--sub)}
+#out{list-style:none;margin:0;padding:6px 14px 8px;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+#out li{display:grid;grid-template-columns:44px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);margin:0}
+#out li:last-child{border-bottom:0}
+#out b{font-weight:600}#out small{display:block;color:var(--sub);font-family:var(--mono);font-size:12.5px;word-break:break-word}
+.pass{color:#18794E;font-weight:700}.fail{color:#B42318;font-weight:700}
+.empty{color:var(--sub);padding:10px 0}
+@media (max-width:480px){body{font-size:16px}.page{padding:36px 16px 60px}h1{font-size:25px}}
+</style>
+</head>
+<body>
+<main class="page">
+<h1>Shift alert bot - architecture spike</h1>
+<p class="by">For your Upwork post, from Josinaldo</p>
+
+<p>I read your spec summary and built the moving parts that matter most before any design: the monitoring loop, the filter engine, the Telegram UI menus, and the session manager for Playwright. Fourteen tests, no token or login needed to run them.</p>
+
+<h2>Run the tests</h2>
+<div class="run">
+  <div class="runbar"><button id="run">Run 14 checks</button><span id="status">Takes a few seconds.</span></div>
+  <ul id="out"><li class="empty" style="display:block">Results will show up here.</li></ul>
+</div>
+<p>Or locally: <code>npm install</code> then <code>npm test</code>.</p>
+
+<h2>How the Telegram UI works</h2>
+<p>Your spec describes a dashboard, settings, filters, and shift alerts. Here's how they look as inline-keyboard messages, which is the native Telegram way to build a bot UI without a separate web app:</p>
+
+<div class="tg">
+  <b>📊 Dashboard</b>
+  <div class="line">Status: 🟢 Monitoring</div>
+  <div class="line">Auto-apply: ❌ Off</div>
+  <div class="line">Check interval: 2 min</div>
+  <div class="line" style="margin-top:6px">Checks: 12  |  Shifts found: 5  |  Errors: 1</div>
+  <div class="row"><div class="btn">⏸ Pause</div><div class="btn">🔄 Check now</div></div>
+  <div class="row"><div class="btn">⚙️ Settings</div><div class="btn">🔍 Filters</div></div>
+  <div class="row"><div class="btn">📋 Recent shifts</div></div>
+</div>
+
+<div class="tg">
+  <b>🚨 New shift available</b>
+  <div class="line">📍 Brampton Warehouse A</div>
+  <div class="line">📅 Monday  🕐 Morning</div>
+  <div class="line">💰 $18/hr</div>
+  <div class="row"><div class="btn">✅ Apply now</div><div class="btn">❌ Skip</div></div>
+</div>
+
+<p>Every button press is handled by <code>handleCallback()</code> in <a href="/src/telegram.mjs">telegram.mjs</a>, which returns the next message to send. The whole UI is a state machine: dashboard → settings → filters, and back. It's easy to add screens because each one is a function that returns a message object.</p>
+
+<h2>Keeping the session alive</h2>
+<p>The most common reason bots get flagged isn't clever detection; it's that every check starts from a cold browser with no cookies, hits the login page, and loads the same sequence in 200ms flat. That pattern is obvious.</p>
+<p>My approach, in the session manager:</p>
+<ul>
+  <li><b>Warm sessions:</b> after the first login, save the cookies and localStorage. Every following check reuses them, so the site sees a returning user, not a new visitor.</li>
+  <li><b>Fingerprint rotation:</b> a small pool of realistic browser profiles (viewport, timezone, user-agent). Each session uses one consistently, because a fingerprint that changes mid-session is a red flag.</li>
+  <li><b>Human timing:</b> 400-900ms random delays between actions. Fast enough to not miss shifts, slow enough to not look scripted.</li>
+  <li><b>The webdriver flag:</b> Playwright sets <code>navigator.webdriver = true</code> by default. The session manager removes it. Many WAFs check this first.</li>
+  <li><b>Retry with backoff:</b> if a check fails (network, WAF challenge, timeout), wait and retry with growing delays instead of hammering the server.</li>
+</ul>
+<p>For CAPTCHAs that can't be avoided, I use a solving service (2Captcha or CapSolver) as a fallback. The key is to minimize how often they appear by keeping the session warm and the behaviour realistic.</p>
+
+<h2>Architecture</h2>
+<pre><code>┌─────────────────────────┐
+│   Telegram Bot API      │  User sends /start, taps buttons
+│   (inline keyboards)    │  Bot sends dashboard, alerts, settings
+└──────────┬──────────────┘
+           │
+┌──────────▼──────────────┐
+│   Monitor loop          │  Checks the site every N minutes
+│   (ShiftMonitor)        │  Diffs against seen shifts
+│                         │  Applies user filters
+└──────────┬──────────────┘
+           │
+┌──────────▼──────────────┐
+│   Session manager       │  Playwright with warm cookies
+│   (Playwright)          │  Fingerprint pool, human delays
+│                         │  Retry with backoff
+└──────────┬──────────────┘
+           │
+┌──────────▼──────────────┐
+│   Target site           │  Login, scrape shifts, auto-apply
+│   (AWS WAF / CAPTCHA)   │  CAPTCHA fallback via solving service
+└─────────────────────────┘</code></pre>
+
+<h2>What I'd ask you before starting</h2>
+<ol>
+  <li><b>One user or many?</b> If it's just you, we store settings in a JSON file. If you're reselling access, it needs a database and per-user sessions.</li>
+  <li><b>Where does it run?</b> A VPS with a residential proxy is the safest. Cloud functions (Lambda, etc.) rotate IPs on every call, which is exactly what WAFs look for.</li>
+  <li><b>How fast do shifts disappear?</b> If they're gone in 30 seconds, auto-apply has to be instant and the check interval needs to be under a minute. If they last hours, we can be gentler on the site.</li>
+  <li><b>Does the site have an API or mobile app?</b> Sometimes the mobile API is less protected than the web UI. Worth checking before building the scraper.</li>
+</ol>
+
+<h2>What's in the repo</h2>
+<ul class="files">
+  <li><a href="/src/session.mjs">src/session.mjs</a> <span>Playwright session: warm cookies, fingerprints, human delays, retry</span></li>
+  <li><a href="/src/monitor.mjs">src/monitor.mjs</a> <span>check loop with deduplication and memory cap</span></li>
+  <li><a href="/src/filters.mjs">src/filters.mjs</a> <span>location, pay, day, time slot filters</span></li>
+  <li><a href="/src/telegram.mjs">src/telegram.mjs</a> <span>dashboard, settings, filters, and alert messages</span></li>
+  <li><a href="/tests/filters.test.mjs">tests/filters.test.mjs</a> <span>filter logic: partial match, AND combos, edge cases</span></li>
+  <li><a href="/tests/monitor.test.mjs">tests/monitor.test.mjs</a> <span>dedup, error handling, memory cap</span></li>
+  <li><a href="/tests/telegram.test.mjs">tests/telegram.test.mjs</a> <span>UI state machine: toggle, interval, clear</span></li>
+</ul>
+
+<p class="foot">No tokens, credentials, or target site URLs in this repo. Plugging in a Telegram token and the target site's selectors makes it live.</p>
+</main>
+<script>
+(function(){
+  var btn=document.getElementById('run'),out=document.getElementById('out'),status=document.getElementById('status');
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  btn.addEventListener('click',function(){
+    btn.disabled=true;status.textContent='Running...';out.innerHTML='';
+    fetch('/api/checks',{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+      if(d.error)throw new Error(d.error);
+      out.innerHTML=d.results.map(function(r){
+        return '<li><span class="'+(r.pass?'pass':'fail')+'">'+(r.pass?'PASS':'FAIL')+'</span><div><b>'+esc(r.title)+'</b><small>'+esc(r.detail||'')+'</small></div></li>'}).join('');
+      status.textContent=d.passed+' of '+d.total+' passed in '+d.ms+' ms';
+    }).catch(function(e){
+      out.innerHTML='<li class="empty" style="display:block">Error: '+esc(e.message)+'</li>';status.textContent='';
+    }).then(function(){btn.disabled=false;btn.textContent='Run again'});
+  });
+})();
+</script>
+</body>
+</html>

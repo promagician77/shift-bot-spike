@@ -1,0 +1,17 @@
+{
+  "name": "shift-bot-spike",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "start": "node src/bot.mjs",
+    "check": "node scripts/checks.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.52.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
